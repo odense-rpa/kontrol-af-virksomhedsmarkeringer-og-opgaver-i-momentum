@@ -14,6 +14,7 @@ tracker: Tracker
 porteføljeansvarligekode: str
 kontakt_til_virksomhed_kode: str
 porteføljeansvarliges_id: str
+procesnavn = "Kontrol af virksomhedsmarkeringer og opgaver i Momentum"
 
 async def populate_queue(workqueue: Workqueue):
     logger = logging.getLogger(__name__)
@@ -136,6 +137,9 @@ async def process_workqueue(workqueue: Workqueue):
                 if markeringer is not None or markeringer != []:
                     logger.info("Markeringer fundet, opretter opgaver til dem")
                     momentum_service.opret_opgaver_for_markeringer(markeringer, virksomhed, kontakt_til_virksomhed_kode, porteføljeansvarliges_id)
+                
+                logger.info("Item færdig processerede")
+                tracker.track_task(procesnavn)
                         
                 
             except WorkItemError as e:
@@ -151,6 +155,7 @@ async def process_workqueue(workqueue: Workqueue):
                                 "Bemærkning": bemærkning
                             }
                         )
+                tracker.track_partial_task(procesnavn)
                 item.fail(str(e))
             except ValueError as e:
                 logger.info(f"Forkert eller ingen værdig fået på item: {virksomhedsinfo}, fejl: {e}")
