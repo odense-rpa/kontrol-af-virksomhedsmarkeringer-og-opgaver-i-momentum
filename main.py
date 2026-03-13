@@ -53,7 +53,7 @@ async def process_workqueue(workqueue: Workqueue):
                     raise ValueError("Virksomhed ikke fundet i Momentum")
                 
                 # Hent virksomhedsoverblik 
-                logger.info("Henter virksomhedsoverblikket")
+                logger.info(f"Henter virksomhedsoverblikket for {virksomhedsinfo.virksomhedsnavn}")
                 virksomhedsoverblik = momentum.virksomheder.hent_en_virksomheds_overblik(virksomhed["id"])
 
                 if virksomhedsoverblik is None:
@@ -79,7 +79,8 @@ async def process_workqueue(workqueue: Workqueue):
                     except Exception:
                         bemærkning = "Ikke muligt at lukke alt på ikke aktiv virksomhed"
                         raise WorkItemError("Fejl ved lukning af markeringer, opgaver og sagshandlere(overblik)")
-                    logger.info("Alt lukket på virksomhed, forsætter til næste item")                                 
+                    logger.info("Alt lukket på virksomhed, forsætter til næste item")
+                    tracker.track_task(procesnavn)                           
                     continue
 
                 # Skal kun have en porteføljeansvarlige, id'et gemmes til senere
@@ -99,13 +100,14 @@ async def process_workqueue(workqueue: Workqueue):
                                 "Bemærkning": "0 eller flere porteføljeansvarlige på virksomhed"
                             }
                         )
+                    tracker.track_partial_task(procesnavn)   
                     continue
                                                
                 # Finder markeringer som relevante
                 markeringer = momentum_service.find_relevante_markeringer(markeringer, False)
 
                 if any(
-                    markering.get("tag", {}).get("title") == "Passiv - Virksomhedsbank"
+                    markering["tag"]["title"] == "Passiv - Virksomhedsbank"
                     for markering in markeringer
                 ):
                     # Fjern porteføljeansvarlige og luk opgaver her
@@ -116,6 +118,8 @@ async def process_workqueue(workqueue: Workqueue):
                         logger.info("Det var ikke muligt at lukke opgaver, sender til manuel")
                         bemærkning = "Passiv - virksomhedsbank, det var ikke muligt at lukke porteføljeopgaver"
                         raise WorkItemError("Fejl ved lukning af porteføljeopgaver")
+                    logger.info("Portføljeopgaver lukket, forsætter til næste item")
+                    tracker.track_task(procesnavn)   
                     continue
 
                 # Har 1 markeringen med en slutdato, skal opgaver med "porteføljeopfølgning" i titlen lukkes, og porteføljeansvarlige fjernes              
@@ -129,17 +133,22 @@ async def process_workqueue(workqueue: Workqueue):
                         logger.info("Det var ikke muligt at lukke opgaver og fjerne ansvarlige, sender til manuel")
                         bemærkning = "Det var ikke muligt at lukke porteføljeopgaver og/eller fjerne porteføljeansvarlige på virksomhed"
                         raise WorkItemError("Fejl ved lukning af porteføljeopgaver, og fjernelse af porteføljeansvarlige")
+                    logger.info("Porteføljeopgaver lukket og ansvarlige fjernet, forsætter til næste item")
+                    tracker.track_task(procesnavn)                     
                     continue
 
                 logger.info("Tjekker om der er markeringer der skal have opgaver")                
                 markeringer = momentum_service.find_markerninger_der_skal_have_ogpaver(opgaver, markeringer, False)
                 
-                if markeringer is not None or markeringer != []:
+                if markeringer is not None and len(markeringer) > 0:
                     logger.info("Markeringer fundet, opretter opgaver til dem")
                     momentum_service.opret_opgaver_for_markeringer(markeringer, virksomhed, kontakt_til_virksomhed_kode, porteføljeansvarliges_id)
+                    logger.info("Opgave/opgaver oprettet på virksomheden, forsætter til næste item")
+                    tracker.track_task(procesnavn)
+                    continue
                 
-                logger.info("Item færdig processerede")
-                tracker.track_task(procesnavn)
+                logger.info("Alt godt, forsætter til næste item")
+                tracker.track_partial_task(procesnavn)
                         
                 
             except WorkItemError as e:

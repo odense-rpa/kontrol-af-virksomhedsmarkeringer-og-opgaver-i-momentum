@@ -6,10 +6,10 @@ from odk_tools.tracking import Tracker
 
 
 class Markering(Enum):
-    PASSIV= ("Passiv - Virksomhedsbank", "b15b54bb-d182-4b68-8534-bc4fb718862d", "Opgave - Porteføljeopfølgning - Passiv")
-    KONTAKT = ("Kontakt - Virksomhedsbank", "2078ac36-b687-4723-bed7-2445e5c30a6f", "Opgave - Porteføljeopfølgning - Kontakt", )
-    PARTNERSKAB = ("Partnerskab - Virksomhedsbank", "aa705e32-6388-4a9a-b4e4-3140fd529834", "Opgave - Porteføljeopfølgning - Partnerskab")
-    SAMARBEJDE = ("Samarbejde - Virksomhedsbank", "fa1a14f3-7b57-44d3-b784-fb44cef71866", "Opgave - Porteføljeopfølgning - Samarbejde")
+    PASSIV= ("Passiv - Virksomhedsbank", "b15b54bb-d182-4b68-8534-bc4fb718862d", "Opgave - Porteføljeopfølgning - Passiv", "")
+    KONTAKT = ("Kontakt - Virksomhedsbank", "2078ac36-b687-4723-bed7-2445e5c30a6f", "Opgave - Porteføljeopfølgning - Kontakt", "Opgave - Porteføljeopfølgning – kontakt")
+    PARTNERSKAB = ("Partnerskab - Virksomhedsbank", "aa705e32-6388-4a9a-b4e4-3140fd529834", "Opgave - Porteføljeopfølgning - Partnerskab", "Opgave - Porteføljeopfølgning – Partnerskab")
+    SAMARBEJDE = ("Samarbejde - Virksomhedsbank", "fa1a14f3-7b57-44d3-b784-fb44cef71866", "Opgave - Porteføljeopfølgning - Samarbejde", "Opgave - Porteføljeopfølgning – Samarbejde")
     
     @property
     def name(self):
@@ -22,6 +22,11 @@ class Markering(Enum):
     @property
     def opgavenavn(self):
         return self.value[2]
+    
+    @property
+    def tidl_opgavenavn(self):
+        return self.value[3]
+        
 
 
 class TestMarkering(Enum):
@@ -40,6 +45,10 @@ class TestMarkering(Enum):
     @property
     def opgavenavn(self):
         return self.value[2]
+    
+    @property
+    def tidl_opgavenavn(self):
+        return ""
 
 
 class MomentumService:
@@ -70,10 +79,11 @@ class MomentumService:
     
     def luk_markgeringer(self, markeringer: dict):       
         for markering in markeringer:
-                self.momentum.markeringer.afslut_markering(
-                    markering=markering,
-                    slut_dato=datetime.datetime.now().date()
-                )
+                if markering["end"] is None:
+                    self.momentum.markeringer.afslut_markering(
+                        markering=markering,
+                        slut_dato=datetime.datetime.now().date()
+                    )
 
     
     def luk_opgaver(self, opgaver: list[dict]):
@@ -119,8 +129,8 @@ class MomentumService:
         return relevante_markeringer
 
     def find_og_luk_porteføljeopgaver(self, opgaver: dict):
-        porteføljeopfølgning_opgaver = [opgave for opgave in opgaver if "porteføljeopfølgning" in opgave["title"].lower()]
-        if len(porteføljeopfølgning_opgaver) > 0 or porteføljeopfølgning_opgaver is not None:
+        porteføljeopfølgning_opgaver = [opgave for opgave in opgaver if "porteføljeopfølgning" in opgave["title"].lower() and (opgave["stateName"] != "Gennemført" and opgave["stateName"] != "Aflyst")]
+        if len(porteføljeopfølgning_opgaver) > 0:
             self.luk_opgaver(porteføljeopfølgning_opgaver)
 
     def find_og_luk_porteføljeansvarlige(self, virksomhedsoverblik: dict, virksomhed: dict, porteføljeansvarligekode: str):
@@ -130,18 +140,20 @@ class MomentumService:
         
     def find_markerninger_der_skal_have_ogpaver(self, opgaver: dict, markeringer: dict, test: bool = True) -> list[dict]:
         markering_enum = TestMarkering if test else Markering
-        markering_navn_til_opgavenavn = {m.name: m.opgavenavn for m in markering_enum}
-   
+        
         markeringer_der_skal_have_opgave = []
 
         for markering in markeringer:
 
             markering_skal_have_opgave = True
-            opgavetitel = markering_navn_til_opgavenavn.get(markering["tag"]["title"])
+            matchet_enum = next((m for m in markering_enum if m.name == markering["tag"]["title"]), None)
+
+            if matchet_enum is None:
+                continue
 
             for opgave in opgaver:
                 # Tjekker om der er en opgave for den pågældende markering, med korrekt status
-                if opgave["title"] == opgavetitel and (opgave["stateName"] == "Planlagt" or opgave["stateName"] == "I gang"):
+                if (opgave["title"] == matchet_enum.opgavenavn or opgave["title"] == matchet_enum.tidl_opgavenavn) and (opgave["stateName"] == "Planlagt" or opgave["stateName"] == "I gang"):
                     # Er der en slut dato på markeringen, skal denne opgave afsluttes, og der skal senere oprettes en ny opgave for markeringen
                     if markering["end"] is not None:
                         self.momentum.opgaver.opdater_opgave_status(opgave["id"], self.momentum.opgaver.Status.gennemført)
