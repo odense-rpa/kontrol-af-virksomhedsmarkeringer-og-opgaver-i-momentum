@@ -97,15 +97,15 @@ class MomentumService:
         response = self.momentum.virksomheder.opdater_sagsbehandlere_på_overblik(virksomhedsid, sagsbehandler_query)
         
     def find_taksonomi_id(self, taksonomi_navn:str) -> str:
-        taksonomier = self.momentum.taksonomier.hent_alle_taksonomier()
+        taksonomier = self.momentum.taksonomier.hent_medarbejder_taksonomier()
 
         porteføljeansvarlig = []
-        for taksonomi in taksonomier:
-            for item in taksonomi .get("items", []):
-                if item.get("name") == taksonomi_navn:
-                    porteføljeansvarlig.append({
-                        "taxonomy_code": item["code"],
-                    })
+        
+        for item in taksonomier.get("items", []):
+            if item.get("name") == taksonomi_navn:
+                porteføljeansvarlig.append({
+                    "taxonomy_code": item["code"],
+                })
         
         if len(porteføljeansvarlig) == 1:
             return porteføljeansvarlig[0]["taxonomy_code"]
