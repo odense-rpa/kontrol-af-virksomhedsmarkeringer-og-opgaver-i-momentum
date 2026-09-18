@@ -96,12 +96,12 @@ class MomentumService:
 
         response = self.momentum.virksomheder.opdater_sagsbehandlere_på_overblik(virksomhedsid, sagsbehandler_query)
         
-    def find_taksonomi_id(self, taksonomi_navn:str) -> str:
-        taksonomier = self.momentum.taksonomier.hent_medarbejder_taksonomier()
+    def find_taksonomi_id(self, taksonomi_gruppe: str, taksonomi_navn:str) -> str:
+        taksonomier = self.momentum.taksonomier.find_taksonomi_gruppe(taksonomi_gruppe)
 
         porteføljeansvarlig = []
         
-        for item in taksonomier.get("items", []):
+        for item in taksonomier.get("taxons", []):
             if item.get("name") == taksonomi_navn:
                 porteføljeansvarlig.append({
                     "taxonomy_code": item["code"],
@@ -109,7 +109,7 @@ class MomentumService:
         
         if len(porteføljeansvarlig) == 1:
             return porteføljeansvarlig[0]["taxonomy_code"]
-        else:
+        else:            
             raise ValueError("Fandt ikke korrekt taksonomi")
     
     def find_relevante_markeringer(self, markeringer:dict, test:bool) -> list[dict]:       

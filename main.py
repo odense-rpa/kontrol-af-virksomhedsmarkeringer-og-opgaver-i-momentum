@@ -36,8 +36,8 @@ async def process_workqueue(workqueue: Workqueue):
     logger = logging.getLogger(__name__)
     # Id for porteføljeansvarlige findes, Porteføljeansvarlig
     # Porteføljeansvarlig findes ikke i EDU, Støtte-kontaktperson kan anvendes til EDU
-    porteføljeansvarligekode = momentum_service.find_taksonomi_id("Porteføljeansvarlig")
-    kontakt_til_virksomhed_kode = momentum_service.find_taksonomi_id("Kontakt til virksomhed")
+    porteføljeansvarligekode = momentum_service.find_taksonomi_id("CASEWORKER_RESPONSIBILITY", "Porteføljeansvarlig")
+    kontakt_til_virksomhed_kode = momentum_service.find_taksonomi_id("JOURNAL_TYPES_COMPANY", "Kontakt til virksomhed")
     bemærkning: str
 
     for item in workqueue:
