@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 import re
 from pydantic import BaseModel, field_validator, ConfigDict
@@ -27,3 +28,11 @@ class Virksomhed(BaseModel):
         return v
 
     
+
+@dataclass
+class VirksomhedsKontekst:
+    """Samlet data om en virksomhed hentet fra Momentum."""
+    virksomhed: dict
+    overblik: dict
+    markeringer: list[dict]
+    opgaver: list[dict]
